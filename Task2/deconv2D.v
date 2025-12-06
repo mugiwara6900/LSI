@@ -102,7 +102,7 @@ module deconv2D #(
                 end
 
                 INITIALIZE: begin
-                    if (weight_counter == number_weights*number_weights) begin
+                    if (weight_counter == number_weights) begin
                         state <= ASSIGN_REG;
                     end
                     else if (strobe_signal_kernel) begin
@@ -114,7 +114,7 @@ module deconv2D #(
 
                 ASSIGN_REG: begin
                     if(strobe_signal_pixel) begin
-                        for(l = 0; l < number_weights*number_weights; l = l + 1) begin 
+                        for(l = 0; l < number_weights; l = l + 1) begin 
                             multiplied_output_reg[l] <= multiplied_output[l];
                         end
                         state <= ADD;
@@ -124,7 +124,7 @@ module deconv2D #(
 
                 ADD: begin
 
-                    if(add_counter == number_weights*number_weights) begin
+                    if(add_counter == number_weights) begin
                         if(pixel_counter == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
