@@ -4,13 +4,14 @@
 module deconv2D #(
     parameter N = 2,
     parameter K = 3,
-    parameter pixel_bits = 8;
+    parameter pixel_bits = 8
 
 )(
     input wire clk,
     input wire enable,
     input wire rst,
-    input wire strobe_signal,
+    input wire strobe_signal_pixel,
+    input wire strobe_signal_kernel,
     input wire [pixel_bits-1:0] pixel,
     input wire [$clog2(K)-1:0] stride,
     input wire [$clog2(K*K)-1:0] number_weights,
@@ -101,7 +102,7 @@ module deconv2D #(
                     if (weight_counter == number_weights*number_weights) begin
                         state <= ASSIGN_REG;
                     end
-                    else if (strobe_signal) begin
+                    else if (strobe_signal_kernel) begin
                         kernel_RAM[weight_counter] <= kernel_weight;
                         weight_counter <= weight_counter + 1'b1;
                         state <= INITIALIZE;
@@ -109,19 +110,23 @@ module deconv2D #(
                 end
 
                 ASSIGN_REG: begin
-                    for(l = 0; l < number_weights*number_weights; l = l + 1) begin 
-                        multiplied_output_reg[l] <= multiplied_output[l];
+                    if(strobe_signal_pixel) begin
+                        for(l = 0; l < number_weights*number_weights; l = l + 1) begin 
+                            multiplied_output_reg[l] <= multiplied_output[l];
+                        end
+                        state <= ADD;
                     end
-                    state <= ADD;
+                    
                 end
 
                 ADD: begin
+
                     if(add_counter == number_weights*number_weights) begin
                         if(pixel_number == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
                             add_counter <= 0;
-                            state <= ADD;
+                            state <= ASSIGN_REG;
                         end
                     end else begin
                         result_RAM[decoded_index[add_counter]] <= result_RAM[decoded_index[add_counter]] + multiplied_output_reg[add_counter];
