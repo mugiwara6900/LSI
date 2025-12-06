@@ -1,0 +1,63 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compile Verilog",
+            "type": "shell",
+            "command": "iverilog",
+            "args": [
+                "-o", 
+                "${fileBasenameNoExtension}.out", 
+                "${file}"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Simulate Verilog",
+            "type": "shell",
+            "command": "vvp",
+            "args": ["${fileBasenameNoExtension}.out"],
+            "dependsOn": "Compile Verilog",
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Open GTKWave",
+            "type": "shell",
+            "command": "gtkwave",
+            "args": ["${fileBasenameNoExtension}.vcd"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Build and Simulate",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Compile Verilog",
+                "Simulate Verilog"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
+}
