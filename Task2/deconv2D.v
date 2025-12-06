@@ -14,7 +14,7 @@ module deconv2D #(
     input wire strobe_signal_kernel,
     input wire [pixel_bits-1:0] pixel,
     input wire [$clog2(K)-1:0] stride,
-    input wire [$clog2(K*K)-1:0] number_weights,
+    input wire [$clog2(K)-1:0] kernel_width,
     input wire [pixel_bits-1:0] kernel_weight,
     input wire [$clog2(N*N)-1:0] pixel_number,
     input wire [$clog2(N*K*N*K)-1:0] result_address,
@@ -105,7 +105,7 @@ module deconv2D #(
                 end
 
                 INITIALIZE: begin
-                    if (weight_counter == number_weights) begin
+                    if (weight_counter == kernel_width*kernel_width) begin
                         state <= ASSIGN_REG;
                     end
                     else if (strobe_signal_kernel) begin
@@ -116,7 +116,7 @@ module deconv2D #(
 
                 ASSIGN_REG: begin
                     if(strobe_signal_pixel) begin
-                        for(k = 0; k < number_weights; k = k + 1) begin 
+                        for(k = 0; k < kernel_width*kernel_width; k = k + 1) begin 
                             multiplied_output_reg[k] <= multiplied_output[k];
                         end
                         state <= ADD;
@@ -126,7 +126,7 @@ module deconv2D #(
                 end
 
                 ADD: begin
-                    if(add_counter == number_weights) begin
+                    if(add_counter == kernel_width*kernel_width) begin
                         if(pixel_counter == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
