@@ -12,6 +12,7 @@ module decoder#(
     wire [$clog2(K)-1:0] k_x = (current_index / kernel_width);
     wire [$clog2(K)-1:0] k_y = (current_index % kernel_width);
 
+
     wire [$clog2(N*K)-1:0] shift_x = k_x + stride * (pixel_number / N); 
     wire [$clog2(N*K)-1:0] shift_y = k_y + stride * (pixel_number % N);
 
