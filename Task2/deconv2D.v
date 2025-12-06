@@ -28,6 +28,7 @@ module deconv2D #(
     reg [pixel_bits-1:0] kernel_RAM [0: K*K-1];
     reg [$clog2(K*K)-1:0] weight_counter;
     reg [$clog2(K*K)-1:0] add_counter;
+    reg [$clog2(N*N)-1:0] pixel_counter;
     reg [pixel_bits*4 - 1:0] result_RAM [0:N*K*N*K-1];
     reg [pixel_bits*2 - 1:0] multiplied_output_reg [0:K*K -1];
     reg done_temp;
@@ -80,6 +81,7 @@ module deconv2D #(
             done_temp <= 0;
             weight_counter <= 0; 
             add_counter <= 0;
+            pixel_counter <= 0;
         end else begin
             case(state) 
 
@@ -87,6 +89,7 @@ module deconv2D #(
                     done_temp <= 0;  
                     weight_counter <= 0;
                     add_counter <= 0;
+                    pixel_counter <= 0;
                     for(k = 0; k < N*N*K*K; k = k + 1) begin 
                         result_RAM[k] <= 0;
                     end
@@ -122,10 +125,11 @@ module deconv2D #(
                 ADD: begin
 
                     if(add_counter == number_weights*number_weights) begin
-                        if(pixel_number == N*N-1) begin
+                        if(pixel_counter == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
                             add_counter <= 0;
+                            pixel_counter <= pixel_counter + 1'b1;
                             state <= ASSIGN_REG;
                         end
                     end else begin
@@ -145,6 +149,7 @@ module deconv2D #(
                     done_temp <= 0;
                     weight_counter <= 0;
                     add_counter <= 0;
+                    pixel_counter <= 0;
                 end
 
             endcase
