@@ -22,7 +22,7 @@ module deconv2D #(
     output wire done
 );
 
-    integer j, k;
+    integer j, k, l;
 
     reg [2:0] state;
 
@@ -38,6 +38,7 @@ module deconv2D #(
 
     wire [pixel_bits*2 - 1:0] multiplied_output [0:K*K -1];
     wire [$clog2(N*K*N*K)-1:0] decoded_index [0:K*K -1];
+    wire [$clog2(K*K)-1:0] actual_index = ((weight_counter/kernel_width)*K) + (weight_counter % kernel_width); 
 
     assign done = done_temp;
     assign final_output = result_RAM[result_address];
@@ -101,6 +102,9 @@ module deconv2D #(
                     for(j = 0; j < N*N*K*K; j = j + 1) begin 
                         result_RAM[j] <= 0;
                     end
+                    for(l = 0; l < K*K; l = l + 1) begin
+                        kernel_RAM[l] <= 0;
+                    end
                     state <= INITIALIZE;
                 end
 
@@ -109,14 +113,14 @@ module deconv2D #(
                         state <= ASSIGN_REG;
                     end
                     else if (strobe_signal_kernel) begin
-                        kernel_RAM[weight_counter] <= kernel_weight;
+                        kernel_RAM[actual_index] <= kernel_weight;
                         weight_counter <= weight_counter + 1'b1;
                     end
                 end
 
                 ASSIGN_REG: begin
                     if(strobe_signal_pixel) begin
-                        for(k = 0; k < kernel_width*kernel_width; k = k + 1) begin 
+                        for(k = 0; k < K*K; k = k + 1) begin 
                             multiplied_output_reg[k] <= multiplied_output[k];
                         end
                         state <= ADD;
@@ -126,7 +130,7 @@ module deconv2D #(
                 end
 
                 ADD: begin
-                    if(add_counter == kernel_width*kernel_width) begin
+                    if(add_counter == K*K) begin
                         if(pixel_counter == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
