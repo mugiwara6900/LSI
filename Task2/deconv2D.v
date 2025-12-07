@@ -120,7 +120,7 @@ module deconv2D #(
 
                 ASSIGN_REG: begin
                     if(strobe_signal_pixel) begin
-                        for(k = 0; k < kernel_width*kernel_width; k = k + 1) begin 
+                        for(k = 0; k < K*K; k = k + 1) begin 
                             multiplied_output_reg[k] <= multiplied_output[k];
                         end
                         state <= ADD;
@@ -130,7 +130,7 @@ module deconv2D #(
                 end
 
                 ADD: begin
-                    if(add_counter == kernel_width*kernel_width) begin
+                    if(add_counter == K*K) begin
                         if(pixel_counter == N*N-1) begin
                             state <= DONE_STATE;
                         end else begin
