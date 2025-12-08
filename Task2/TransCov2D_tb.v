@@ -23,6 +23,7 @@ module TransCov2D_tb;
     // Outputs
     wire [pixel_bits*4-1:0] final_output;
     wire done;
+    wire ready; // <--- 1. New Wire for Handshake
 
     // Instantiate the Unit Under Test (UUT)
     deconv2D #(
@@ -42,44 +43,71 @@ module TransCov2D_tb;
         .pixel_number(pixel_number), 
         .result_address(result_address), 
         .final_output(final_output), 
+        .ready(ready), // <--- 2. Connect the Ready Signal
         .done(done)
     );
 
     // Clock Generation
     always #5 clk = ~clk; // 10ns period
 
-    // Task to Send Kernel Weights
+    // ---------------------------------------------------------
+    // Task: Send Kernel Weights (With Handshake)
+    // ---------------------------------------------------------
+    integer clk_counter = 0;
+
+    always @(posedge clk) begin
+        clk_counter = clk_counter + 1;
+    end
+
     task load_kernel;
         input [pixel_bits-1:0] weight_val;
         begin
-            strobe_signal_kernel = 0;
+            // Wait until module says "I am ready for data"
+            wait(ready == 1); 
+            
+            // Align with clock edge to allow setup time
+            @(posedge clk);   
+            
             kernel_weight = weight_val;
-            #10; // Wait for setup
-            strobe_signal_kernel = 1; // Pulse Strobe
-            #10;
+            strobe_signal_kernel = 1; 
+            
+            // Hold strobe High for one clock cycle
+            @(posedge clk);   
+            
             strobe_signal_kernel = 0;
-            #10;
+            // No extra delay needed; next call will wait for ready automatically
         end
     endtask
 
-    // Task to Send Pixels
+    // ---------------------------------------------------------
+    // Task: Send Pixels (With Handshake)
+    // ---------------------------------------------------------
     task send_pixel;
         input [pixel_bits-1:0] p_val;
         input [$clog2(N*N)-1:0] p_num;
         begin
-            strobe_signal_pixel = 0;
+            // 1. Handshake: Block execution until Module is finished processing previous pixel
+            wait(ready == 1); 
+            
+            // 2. Setup Data
+            @(posedge clk);
             pixel = p_val;
             pixel_number = p_num;
-            #10;
-            strobe_signal_pixel = 1; // Pulse Strobe
-            #10;
+            
+            // 3. Pulse Strobe
+            strobe_signal_pixel = 1;
+            @(posedge clk); // Hold for 1 cycle
             strobe_signal_pixel = 0;
-            // Wait some time to simulate processing (optional, FSM handles it)
-            #100; 
+            
+            // Note: We removed the hardcoded #100 wait.
+            // The next time we call send_pixel, the 'wait(ready)' line 
+            // will automatically pause until the ADD loop is finished.
         end
     endtask
 
-    integer i;
+    integer i, j;
+
+    
 
     initial begin
         // Initialize Inputs
@@ -89,8 +117,8 @@ module TransCov2D_tb;
         strobe_signal_pixel = 0;
         strobe_signal_kernel = 0;
         pixel = 0;
-        stride = 3;      
-        kernel_width = 3; 
+        stride = 1;      
+        kernel_width = 2; 
         kernel_weight = 0;
         pixel_number = 0;
         result_address = 0;
@@ -99,34 +127,35 @@ module TransCov2D_tb;
         #20;
         rst = 0;
         #10;
-        
 
-        // Triggering diagram logic to visualize stride/kernel
-        
         $display("--- Starting Simulation ---");
         enable = 1;
-        #20; // Wait for IDLE -> CLEAR_RAM -> INITIALIZE transition
-
         
-        $display("Loading Kernel Weights (All 1s)...");
+        // Note: We removed the hardcoded #20 wait here.
+        // The load_kernel task below will automatically wait 
+        // for the CLEAR_RAM state to finish (when ready goes high).
+
+        $display("Loading Kernel Weights ...");
         // We are sending 4 weights because kernel_width=2
+        // These will execute back-to-back as fast as the module allows
         load_kernel(8'd1); // Weight 0
         load_kernel(8'd1); // Weight 1
         load_kernel(8'd1); // Weight 2
         load_kernel(8'd1); // Weight 3
-        load_kernel(8'd1); // Weight 4
+        /* load_kernel(8'd1); // Weight 4
         load_kernel(8'd1); // Weight 5
         load_kernel(8'd1); // Weight 6
         load_kernel(8'd1); // Weight 7
         load_kernel(8'd1); // Weight 8
-        
-        // Wait for FSM to transition to ASSIGN_REG
-        #20; 
+        */
 
         // -------------------------------------------------
         // 2. Process Image Pixels (2x2 Image)
         // -------------------------------------------------
         $display("Processing Pixels...");
+        
+        // The send_pixel task now handles the timing flow control.
+        // It won't send Pixel 1 until Pixel 0 is fully calculated.
         
         // Pixel 0 (Top-Left) = 10
         send_pixel(8'd10, 0); 
@@ -145,6 +174,7 @@ module TransCov2D_tb;
         // -------------------------------------------------
         wait(done == 1);
         $display("--- Processing Done ---");
+        $display("Total execution time: %0d clock cycles", clk_counter);
         enable = 0;
 
         // -------------------------------------------------
@@ -152,8 +182,6 @@ module TransCov2D_tb;
         // -------------------------------------------------
         $display("Reading Result RAM (Non-zero values):");
         
-        // Check a reasonable range. 
-        // With N=2, K=3, Stride=1, Max Address is roughly 6x6 area.
         for (i = 0; i < N*K*N*K; i = i + 1) begin
             result_address = i;
             #10; // Wait for read
